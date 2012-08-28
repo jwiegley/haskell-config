@@ -41,49 +41,63 @@
   :type 'boolean
   :group 'haskell)
 
+(defface haskell-subscript '((t :height 0.6))
+ "Face used for subscripts."
+ :group 'haskell)
+
 (use-package haskell-mode
-  :mode ("\\.l?hs\\'" . haskell-mode)
+  :mode (("\\.hs\\'" . haskell-mode)
+         ("\\.lhs\\'" . literate-haskell-mode))
   :init
   (if haskell-config-use-unicode-symbols
-      (let ((conv-chars '(("[ (]\\(->\\)[) ]"      . ?→)
-                          ("[ (]\\(/=\\)[) ]"      . ?≠)
-                          ("[ (]\\(<=\\)[) ]"      . ?≤)
-                          ("[ (]\\(>=\\)[) ]"      . ?≥)
-                          ("[ (]\\(=\\)[) ]"       . ?≡)
-                          ("[ (]\\(\\.\\)[) ]"     . ?∘)
-                          ("[ (]\\(&&\\)[) ]"      . ?∧)
-                          ("[ (]\\(||\\)[) ]"      . ?∨)
-                          ("[ (]\\(\\*\\)[) ]"     . ?×)
-                          ("[ (]\\(\\\\\\)[(_a-z]" . ?λ)
-                          (" \\(<-\\) "            . ?←)
-                          (" \\(-<\\) "            . ?⤙)
-                          (" \\(=>\\) "            . ?⇒)
+      (let ((conv-chars '(("[ (]\\(->\\)[) ]"       . ?→)
+                          ("[ (]\\(/=\\)[) ]"       . ?≠)
+                          ("[ (]\\(<=\\)[) ]"       . ?≤)
+                          ("[ (]\\(>=\\)[) ]"       . ?≥)
+                          ("[ (]\\(=\\)[) ]"        . ?≡)
+                          ("[ (]\\(\\.\\)[) ]"      . ?∘)
+                          ("[ (]\\(&&\\)[) ]"       . ?∧)
+                          ("[ (]\\(||\\)[) ]"       . ?∨)
+                          ("[ (]\\(\\*\\)[) ]"      . ?×)
+                          ("[ (]\\(\\\\\\)[(_a-z]"  . ?λ)
+                          (" \\(<-\\) "             . ?←)
+                          (" \\(-<\\) "             . ?⤙)
+                          (" \\(=>\\) "             . ?⇒)
                           ;;(" \\(>=>\\) "           . ?↣)
                           ;;(" \\(<=<\\) "           . ?↢)
                           ;;(" \\(>>=\\) "           . ?↦)
                           ;;(" \\(=<<\\) "           . ?↤)
-                          ("[ (]\\(not\\)[ )]"     . ?¬)
-                          ("[ (]\\(<<<\\)[ )]"     . ?⋘)
-                          ("[ (]\\(>>>\\)[ )]"     . ?⋙)
-                          (" \\(::\\) "            . ?∷)
-                          ("\\(`union`\\)"         . ?⋃)
-                          ("\\(`intersect`\\)"     . ?⋂)
-                          ("\\(`elem`\\)"          . ?∈)
-                          ("\\(`notElem`\\)"       . ?∉)
+                          ("[ (]\\(\\<not\\>\\)[ )]" . ?¬)
+                          ("[ (]\\(<<<\\)[ )]"      . ?⋘)
+                          ("[ (]\\(>>>\\)[ )]"      . ?⋙)
+                          (" \\(::\\) "             . ?∷)
+                          ("\\(`union`\\)"          . ?⋃)
+                          ("\\(`intersect`\\)"      . ?⋂)
+                          ("\\(`elem`\\)"           . ?∈)
+                          ("\\(`notElem`\\)"        . ?∉)
                           ;;("\\<\\(mempty\\)\\>"    . ??)
-                          ("\\(`mappend`\\)"       . ?⨂)
-                          ("\\(`msum`\\)"          . ?⨁)
-                          ("\\<\\(forall\\)\\> "   . ?∀))))
-        (font-lock-add-keywords
-         'haskell-mode
-         (append (mapcar (lambda (chars)
-                           `(,(car chars)
-                             (0 (ignore
-                                 (compose-region (match-beginning 1)
-                                                 (match-end 1)
-                                                 ,(cdr chars))))))
-                         conv-chars)
-                 '(("(\\|)" . 'esk-paren-face))))))
+                          ("\\(`mappend`\\)"        . ?⨂)
+                          ("\\(`msum`\\)"           . ?⨁)
+                          ("\\(\\<alpha\\>\\)"      . ?α)
+                          ("\\(\\<beta\\>\\)"       . ?β)
+                          ("\\(\\<delta\\>\\)"      . ?δ)
+                          ("\\(\\<theta\\>\\)"      . ?θ)
+                          ("\\(\\<undefined\\>\\)"  . ?⊥)
+                          ("\\<\\(forall\\)\\> "    . ?∀))))
+        (mapc (lambda (mode)
+                (font-lock-add-keywords
+                 mode
+                 (append (mapcar (lambda (chars)
+                                   `(,(car chars)
+                                     (0 (ignore
+                                         (compose-region (match-beginning 1)
+                                                         (match-end 1)
+                                                         ,(cdr chars))))))
+                                 conv-chars)
+                         '(("(\\|)" . 'esk-paren-face)
+                           ("\\<[a-zA-Z]+\\([0-9]\\)\\>"
+                            1 haskell-subscript)))))
+              '(haskell-mode literate-haskell-mode))))
 
   :config
   (progn
@@ -144,7 +158,61 @@
         ;; Emacs needs to be restarted.
         (setq scion-completing-read-function 'ido-completing-read)))
 
+    (defcustom hoogle-binary-path (expand-file-name "~/.cabal/bin/hoogle")
+      "Path to the local 'hoogle' binary."
+      :type 'file
+      :group 'haskell)
+
+    (defun hoogle-local (query)
+      (interactive
+       (let ((def (haskell-ident-at-point)))
+         (if (and def (symbolp def)) (setq def (symbol-name def)))
+         (list (read-string (if def
+                                (format "Hoogle query (default %s): " def)
+                              "Hoogle query: ")
+                            nil nil def))))
+      (let ((buf (get-buffer "*hoogle*")))
+        (if buf
+            (kill-buffer buf))
+        (setq buf (get-buffer-create "*hoogle*"))
+        (with-current-buffer buf
+          (delete-region (point-min) (point-max))
+          (call-process hoogle-binary-path nil t t query)
+          (goto-char (point-min))
+          (highlight-lines-matching-regexp (regexp-quote query) 'helm-match)
+          (display-buffer (current-buffer)))))
+
     (defun my-haskell-mode-hook ()
+      (whitespace-mode 1)
+
+      (require 'align)
+      (add-to-list 'align-rules-list
+                   '(haskell-types
+                     (regexp . "\\(\\s-+\\)::\\s-+")
+                     (modes quote (haskell-mode literate-haskell-mode))))
+      (add-to-list 'align-rules-list
+                   '(haskell-assignment
+                     (regexp . "\\(\\s-+\\)=\\s-+")
+                     (modes quote (haskell-mode literate-haskell-mode))))
+      (add-to-list 'align-rules-list
+                   '(haskell-arrows
+                     (regexp . "\\(\\s-+\\)->\\s-+")
+                     (modes quote (haskell-mode literate-haskell-mode))))
+
+      (require 'haskell-align-imports)
+      (require 'haskell-sort-imports)
+      (require 'haskell-move-nested)
+
+      (bind-key "C-<left>" (lambda ()
+                             (interactive)
+                             (haskell-move-nested -1))
+                haskell-mode-map)
+
+      (bind-key "C-<right>" (lambda ()
+                              (interactive)
+                              (haskell-move-nested 1))
+                haskell-mode-map)
+
       (when (featurep 'inf-haskell)
         (bind-key "C-c C-d" 'my-inferior-haskell-find-haddock haskell-mode-map)
         (bind-key "C-c C-i" 'inferior-haskell-info haskell-mode-map)
@@ -167,6 +235,7 @@
 
       (unbind-key "M-t" haskell-mode-map)
 
+      (bind-key "A-M-h" 'hoogle-local haskell-mode-map)
       (bind-key "C-M-x" 'inferior-haskell-send-decl haskell-mode-map)
       (unbind-key "C-x C-d" haskell-mode-map)
 
