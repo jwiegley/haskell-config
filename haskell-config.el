@@ -46,11 +46,11 @@
  :group 'haskell)
 
 (use-package haskell-mode
-  :mode (("\\.hs\\'" . haskell-mode)
+  :mode (("\\.hsc?\\'" . haskell-mode)
          ("\\.lhs\\'" . literate-haskell-mode))
   :init
   (if haskell-config-use-unicode-symbols
-      (let ((conv-chars '(("[ (]\\(->\\)[) ]"       . ?→)
+      (let ((conv-chars '(("[ (]\\(->\\)[) \n]"     . ?→)
                           ("[ (]\\(/=\\)[) ]"       . ?≠)
                           ("[ (]\\(<=\\)[) ]"       . ?≤)
                           ("[ (]\\(>=\\)[) ]"       . ?≥)
@@ -60,9 +60,9 @@
                           ("[ (]\\(||\\)[) ]"       . ?∨)
                           ("[ (]\\(\\*\\)[) ]"      . ?×)
                           ("[ (]\\(\\\\\\)[(_a-z]"  . ?λ)
-                          (" \\(<-\\) "             . ?←)
+                          (" \\(<-\\)[ \n]"         . ?←)
                           (" \\(-<\\) "             . ?⤙)
-                          (" \\(=>\\) "             . ?⇒)
+                          (" \\(=>\\)[ \n]"         . ?⇒)
                           ;;(" \\(>=>\\) "           . ?↣)
                           ;;(" \\(<=<\\) "           . ?↢)
                           ;;(" \\(>>=\\) "           . ?↦)
@@ -95,8 +95,9 @@
                                                          ,(cdr chars))))))
                                  conv-chars)
                          '(("(\\|)" . 'esk-paren-face)
-                           ("\\<[a-zA-Z]+\\([0-9]\\)\\>"
-                            1 haskell-subscript)))))
+                           ;; ("\\<[a-zA-Z]+\\([0-9]\\)\\>"
+                           ;;  1 haskell-subscript)
+                           ))))
               '(haskell-mode literate-haskell-mode))))
 
   :config
@@ -120,7 +121,9 @@
                     nil nil sym))))
           (inferior-haskell-find-haddock sym)
           (goto-char (point-min))
-          (search-forward sym))
+          (search-forward (concat sym " ::") nil t)
+          (search-forward (concat sym " ::") nil t)
+          (goto-char (match-beginning 0)))
 
         (defun my-inferior-haskell-type (expr &optional insert-value)
           "When used with C-u, don't do any prompting."
@@ -197,6 +200,10 @@
       (add-to-list 'align-rules-list
                    '(haskell-arrows
                      (regexp . "\\(\\s-+\\)->\\s-+")
+                     (modes quote (haskell-mode literate-haskell-mode))))
+      (add-to-list 'align-rules-list
+                   '(haskell-left-arrows
+                     (regexp . "\\(\\s-+\\)<-\\s-+")
                      (modes quote (haskell-mode literate-haskell-mode))))
 
       (require 'haskell-align-imports)
