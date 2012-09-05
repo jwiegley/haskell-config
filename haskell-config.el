@@ -185,6 +185,43 @@
           (highlight-lines-matching-regexp (regexp-quote query) 'helm-match)
           (display-buffer (current-buffer)))))
 
+    (defvar hoogle-server-process nil)
+
+    (defun haskell-hoogle (query)
+      "Do a Hoogle search for QUERY."
+      (interactive
+       (let ((def (haskell-ident-at-point)))
+         (if (and def (symbolp def)) (setq def (symbol-name def)))
+         (list (read-string (if def
+                                (format "Hoogle query (default %s): " def)
+                              "Hoogle query: ")
+                            nil nil def))))
+      (if (null haskell-hoogle-command)
+          (progn
+            (unless (and hoogle-server-process
+                         (process-live-p hoogle-server-process))
+              (message "Starting local Hoogle server on port 8687...")
+              (with-current-buffer (get-buffer-create " *hoogle-web*")
+                (cd temporary-file-directory)
+                (setq hoogle-server-process
+                      (start-process "hoogle-web" (current-buffer)
+                                     (expand-file-name "~/.cabal/bin/hoogle")
+                                     "server" "--local" "--port=8687")))
+              (sleep-for 0 500)
+              (message "Starting local Hoogle server on port 8687...done"))
+            (browse-url (format "http://localhost:8687/?hoogle=%s" query)))
+        (lexical-let ((temp-buffer (if (fboundp 'help-buffer)
+                                       (help-buffer) "*Help*")))
+          (with-output-to-temp-buffer temp-buffer
+            (with-current-buffer standard-output
+              (let ((hoogle-process
+                     (start-process "hoogle" (current-buffer)
+                                    haskell-hoogle-command query))
+                    (scroll-to-top
+                     (lambda (process event)
+                       (set-window-start (get-buffer-window temp-buffer t) 1))))
+                (set-process-sentinel hoogle-process scroll-to-top)))))))
+
     (defun my-haskell-mode-hook ()
       (whitespace-mode 1)
 
