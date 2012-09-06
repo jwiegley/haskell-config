@@ -136,7 +136,19 @@
                                     "Show type of: ")
                                   nil nil sym))
                    current-prefix-arg)))
-          (message (inferior-haskell-type expr insert-value)))))
+          (message (inferior-haskell-type expr insert-value)))
+
+        (defun my-inferior-haskell-break (&optional arg)
+          (interactive "P")
+          (let ((line (line-number-at-pos))
+                (col (if arg
+                         ""
+                       (format " %d" (current-column))))
+                (proc (inferior-haskell-process)))
+            (inferior-haskell-send-command
+             proc (format ":break %d%s" line col))
+            (message "Breakpoint set at %s:%d%s"
+                     (file-name-nondirectory (buffer-file-name)) line col)))))
 
     (use-package ghc
       :load-path "site-lisp/ghc-mod/elisp/"
@@ -187,7 +199,7 @@
 
     (defvar hoogle-server-process nil)
 
-    (defun haskell-hoogle (query)
+    (defun haskell-hoogle (query &optional arg)
       "Do a Hoogle search for QUERY."
       (interactive
        (let ((def (haskell-ident-at-point)))
@@ -195,32 +207,79 @@
          (list (read-string (if def
                                 (format "Hoogle query (default %s): " def)
                               "Hoogle query: ")
-                            nil nil def))))
-      (if (null haskell-hoogle-command)
-          (progn
-            (unless (and hoogle-server-process
-                         (process-live-p hoogle-server-process))
-              (message "Starting local Hoogle server on port 8687...")
-              (with-current-buffer (get-buffer-create " *hoogle-web*")
-                (cd temporary-file-directory)
-                (setq hoogle-server-process
-                      (start-process "hoogle-web" (current-buffer)
-                                     (expand-file-name "~/.cabal/bin/hoogle")
-                                     "server" "--local" "--port=8687")))
-              (sleep-for 0 500)
-              (message "Starting local Hoogle server on port 8687...done"))
-            (browse-url (format "http://localhost:8687/?hoogle=%s" query)))
-        (lexical-let ((temp-buffer (if (fboundp 'help-buffer)
-                                       (help-buffer) "*Help*")))
-          (with-output-to-temp-buffer temp-buffer
-            (with-current-buffer standard-output
-              (let ((hoogle-process
-                     (start-process "hoogle" (current-buffer)
-                                    haskell-hoogle-command query))
-                    (scroll-to-top
-                     (lambda (process event)
-                       (set-window-start (get-buffer-window temp-buffer t) 1))))
-                (set-process-sentinel hoogle-process scroll-to-top)))))))
+                            nil nil def)
+               current-prefix-arg)))
+      (let ((browse-url-browser-function
+             (if (not arg)
+                 browse-url-browser-function
+               '((".*" . w3m-browse-url)))))
+        (if (null haskell-hoogle-command)
+            (progn
+              (unless (and hoogle-server-process
+                           (process-live-p hoogle-server-process))
+                (message "Starting local Hoogle server on port 8687...")
+                (with-current-buffer (get-buffer-create " *hoogle-web*")
+                  (cd temporary-file-directory)
+                  (setq hoogle-server-process
+                        (start-process "hoogle-web" (current-buffer)
+                                       (expand-file-name "~/.cabal/bin/hoogle")
+                                       "server" "--local" "--port=8687")))
+                (sleep-for 0 500)
+                (message "Starting local Hoogle server on port 8687...done"))
+              (browse-url (format "http://localhost:8687/?hoogle=%s" query)))
+          (lexical-let ((temp-buffer (if (fboundp 'help-buffer)
+                                         (help-buffer) "*Help*")))
+            (with-output-to-temp-buffer temp-buffer
+              (with-current-buffer standard-output
+                (let ((hoogle-process
+                       (start-process "hoogle" (current-buffer)
+                                      haskell-hoogle-command query))
+                      (scroll-to-top
+                       (lambda (process event)
+                         (set-window-start (get-buffer-window temp-buffer t) 1))))
+                  (set-process-sentinel hoogle-process scroll-to-top))))))))
+
+    (defun inferior-haskell-find-haddock (sym &optional arg)
+      (interactive
+       (let ((sym (haskell-ident-at-point)))
+         (list (read-string (if (> (length sym) 0)
+                                (format "Find documentation of (default %s): "
+                                        sym)
+                              "Find documentation of: ")
+                            nil nil sym)
+               current-prefix-arg)))
+      (setq sym (inferior-haskell-map-internal-ghc-ident sym))
+      (let* ( ;; Find the module and look it up in the alist
+             (module (let ((mod (condition-case err
+                                    (inferior-haskell-get-module sym)
+                                  (error sym))))
+                       (if (string-match ":\\(.+?\\)\\.[^.]+$" mod)
+                           (match-string 1 mod)
+                         mod)))
+             (alist-record (assoc module (inferior-haskell-module-alist))))
+        (if (null alist-record)
+            (haskell-hoogle sym arg)
+          (let* ((package (nth 1 alist-record))
+                 (file-name (concat (subst-char-in-string ?. ?- module)
+                                    ".html"))
+                 (local-path (concat (nth 2 alist-record) "/" file-name))
+                 (url (if (or (eq inferior-haskell-use-web-docs 'always)
+                              (and (not (file-exists-p local-path))
+                                   (eq inferior-haskell-use-web-docs
+                                       'fallback)))
+                          (concat inferior-haskell-web-docs-base
+                                  package "/" file-name
+                                  ;; Jump to the symbol anchor within Haddock.
+                                  "#v:" sym)
+                        (and (file-exists-p local-path)
+                             (concat "file://" local-path)))))
+            (let ((browse-url-browser-function
+                   (if (not arg)
+                       browse-url-browser-function
+                     '((".*" . w3m-browse-url)))))
+              (if url
+                  (browse-url url)
+                (error "Local file doesn't exist")))))))
 
     (defun my-haskell-mode-hook ()
       (whitespace-mode 1)
@@ -258,6 +317,8 @@
                 haskell-mode-map)
 
       (when (featurep 'inf-haskell)
+        (bind-key "C-x SPC" 'my-inferior-haskell-break haskell-mode-map)
+        (bind-key "C-h C-i" 'my-inferior-haskell-find-haddock haskell-mode-map)
         (bind-key "C-c C-d" 'my-inferior-haskell-find-haddock haskell-mode-map)
         (bind-key "C-c C-i" 'inferior-haskell-info haskell-mode-map)
         (bind-key "C-c C-k" 'inferior-haskell-kind haskell-mode-map)
