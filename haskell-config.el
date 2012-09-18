@@ -150,14 +150,30 @@
             (message "Breakpoint set at %s:%d%s"
                      (file-name-nondirectory (buffer-file-name)) line col)))))
 
+    (defcustom hoogle-binary-path (expand-file-name "~/bin/hoogle")
+      "Path to the local 'hoogle' binary."
+      :type 'file
+      :group 'haskell)
+
     (use-package ghc
       :load-path "site-lisp/ghc-mod/elisp/"
       :commands ghc-init
       :init
       (progn
-        (setq ghc-module-command (expand-file-name "~/.cabal/bin/ghc-mod")
-              ghc-hoogle-command (expand-file-name "~/.cabal/bin/hoogle"))
+        (setq ghc-module-command
+              (expand-file-name "ghc-mod/cabal-dev/bin/ghc-mod"
+                                user-site-lisp-directory)
+              haskell-saved-check-command
+              (expand-file-name "ghc-mod/cabal-dev/bin/hlint"
+                                user-site-lisp-directory)
+              ghc-hoogle-command hoogle-binary-path)
         (add-hook 'haskell-mode-hook 'ghc-init)))
+
+    (use-package haskell-bot
+      :commands haskell-bot-show-bot-buffer)
+
+    (use-package hpaste
+      :commands (hpaste-paste-buffer hpaste-paste-region))
 
     (use-package scion
       :disabled t
@@ -172,11 +188,6 @@
         ;; WARNING: This causes some versions of Emacs to fail so badly that
         ;; Emacs needs to be restarted.
         (setq scion-completing-read-function 'ido-completing-read)))
-
-    (defcustom hoogle-binary-path (expand-file-name "~/.cabal/bin/hoogle")
-      "Path to the local 'hoogle' binary."
-      :type 'file
-      :group 'haskell)
 
     (defun hoogle-local (query)
       (interactive
@@ -222,7 +233,7 @@
                   (cd temporary-file-directory)
                   (setq hoogle-server-process
                         (start-process "hoogle-web" (current-buffer)
-                                       (expand-file-name "~/.cabal/bin/hoogle")
+                                       (expand-file-name "~/bin/hoogle")
                                        "server" "--local" "--port=8687")))
                 (sleep-for 0 500)
                 (message "Starting local Hoogle server on port 8687...done"))
@@ -319,11 +330,16 @@
       (when (featurep 'inf-haskell)
         (bind-key "C-x SPC" 'my-inferior-haskell-break haskell-mode-map)
         (bind-key "C-h C-i" 'my-inferior-haskell-find-haddock haskell-mode-map)
-        (bind-key "C-c C-d" 'my-inferior-haskell-find-haddock haskell-mode-map)
-        (bind-key "C-c C-i" 'inferior-haskell-info haskell-mode-map)
+        (bind-key "C-c C-b" 'haskell-bot-show-bot-buffer haskell-mode-map)
+        (bind-key "C-c C-d" 'ghc-browse-document haskell-mode-map)
         (bind-key "C-c C-k" 'inferior-haskell-kind haskell-mode-map)
         ;; Use C-u C-c C-t to auto-insert a function's type above it
-        (bind-key "C-c C-t" 'my-inferior-haskell-type haskell-mode-map)
+        (if t
+            (progn
+              (bind-key "C-c C-t" 'ghc-show-type haskell-mode-map)
+              (bind-key "C-c C-i" 'ghc-show-info haskell-mode-map))
+          (bind-key "C-c C-t" 'my-inferior-haskell-type haskell-mode-map)
+          (bind-key "C-c C-i" 'inferior-haskell-info haskell-mode-map))
 
         (bind-key "M-." 'my-inferior-haskell-find-definition haskell-mode-map))
 
