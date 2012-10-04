@@ -168,7 +168,14 @@
               (expand-file-name "ghc-mod/cabal-dev/bin/hlint"
                                 user-site-lisp-directory)
               ghc-hoogle-command hoogle-binary-path)
-        (add-hook 'haskell-mode-hook 'ghc-init)))
+        (add-hook 'haskell-mode-hook 'ghc-init))
+
+      :config
+      (defun ghc-save-buffer ()
+        (interactive)
+        (if (buffer-modified-p)
+            (call-interactively 'save-buffer))
+        (flymake-start-syntax-check)))
 
     (use-package haskell-bot
       :commands haskell-bot-show-bot-buffer)
