@@ -329,6 +329,11 @@
                               (haskell-move-nested 1))
                 haskell-mode-map)
 
+      (bind-key "C-c C-u" (lambda ()
+                            (interactive)
+                            (insert "undefined"))
+                haskell-mode-map)
+
       (when (featurep 'inf-haskell)
         (bind-key "C-x SPC" 'my-inferior-haskell-break haskell-mode-map)
         (bind-key "C-h C-i" 'my-inferior-haskell-find-haddock haskell-mode-map)
