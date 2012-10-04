@@ -47,7 +47,8 @@
 
 (use-package haskell-mode
   :mode (("\\.hsc?\\'" . haskell-mode)
-         ("\\.lhs\\'" . literate-haskell-mode))
+         ("\\.lhs\\'" . literate-haskell-mode)
+         ("\\.cabal\\'" . haskell-cabal-mode))
   :init
   (if haskell-config-use-unicode-symbols
       (let ((conv-chars '(("[ (]\\(->\\)[) \n]"     . ?→)
