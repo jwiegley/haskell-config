@@ -294,6 +294,7 @@
                 (error "Local file doesn't exist")))))))
 
     (defun my-haskell-mode-hook ()
+      (auto-complete-mode 1)
       (whitespace-mode 1)
 
       (require 'align)
@@ -346,7 +347,10 @@
 
       (when (featurep 'ghc)
         (bind-key "C-c C-s" 'ghc-insert-template haskell-mode-map)
-        (bind-key "A-<tab>" 'ghc-complete haskell-mode-map))
+
+        (setq ac-sources (list 'ac-source-words-in-same-mode-buffers
+                               'ac-source-ghc-mod))
+        (bind-key "<A-tab>" 'ac-complete c-mode-base-map))
 
       (when (featurep 'scion)
         ;; Whenever we open a file in Haskell mode, also activate Scion
