@@ -45,10 +45,12 @@
  "Face used for subscripts."
  :group 'haskell)
 
+(use-package haskell-cabal
+  :mode ("\\.cabal\\'" . haskell-cabal-mode))
+
 (use-package haskell-mode
   :mode (("\\.hsc?\\'" . haskell-mode)
-         ("\\.lhs\\'" . literate-haskell-mode)
-         ("\\.cabal\\'" . haskell-cabal-mode))
+         ("\\.lhs\\'" . literate-haskell-mode))
   :init
   (if haskell-config-use-unicode-symbols
       (let ((conv-chars '(("[ (]\\(->\\)[) \n]"     . ?→)
