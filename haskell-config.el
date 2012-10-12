@@ -368,7 +368,7 @@
 
         (setq ac-sources (list 'ac-source-words-in-same-mode-buffers
                                'ac-source-ghc-mod))
-        (bind-key "<A-tab>" 'ac-complete c-mode-base-map))
+        (bind-key "<A-tab>" 'ac-complete haskell-mode-map))
 
       (when (featurep 'scion)
         ;; Whenever we open a file in Haskell mode, also activate Scion
