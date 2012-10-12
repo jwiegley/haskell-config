@@ -164,11 +164,15 @@
       :init
       (progn
         (setq ghc-module-command
-              (expand-file-name "ghc-mod/cabal-dev/bin/ghc-mod"
-                                user-site-lisp-directory)
+              (if t
+                  (expand-file-name "~/.cabal/bin/ghc-mod")
+                (expand-file-name "ghc-mod/cabal-dev/bin/ghc-mod"
+                                  user-site-lisp-directory))
               haskell-saved-check-command
-              (expand-file-name "ghc-mod/cabal-dev/bin/hlint"
-                                user-site-lisp-directory)
+              (if t
+                  (expand-file-name "~/.cabal/bin/hlint")
+                (expand-file-name "ghc-mod/cabal-dev/bin/hlint"
+                                  user-site-lisp-directory))
               ghc-hoogle-command hoogle-binary-path)
         (add-hook 'haskell-mode-hook 'ghc-init))
 
