@@ -377,6 +377,7 @@
         ;; errors/warnings in the source.
         (scion-flycheck-on-save 1))
 
+      (unbind-key "M-s" haskell-mode-map)
       (unbind-key "M-t" haskell-mode-map)
 
       (bind-key "A-M-h" 'hoogle-local haskell-mode-map)
