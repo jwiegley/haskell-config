@@ -164,7 +164,7 @@
       :init
       (progn
         (setq ghc-module-command
-              (if t
+              (if nil
                   (expand-file-name "~/.cabal/bin/ghc-mod")
                 (expand-file-name "ghc-mod/cabal-dev/bin/ghc-mod"
                                   user-site-lisp-directory))
