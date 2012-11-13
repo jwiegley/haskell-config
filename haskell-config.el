@@ -86,7 +86,7 @@
                           ("\\(\\<delta\\>\\)"      . ?δ)
                           ("\\(\\<theta\\>\\)"      . ?θ)
                           ("\\(\\<undefined\\>\\)"  . ?⊥)
-                          ("\\<\\(forall\\)\\> "    . ?∀))))
+                          ("\\<\\(forall \\)\\> "   . ?∀))))
         (mapc (lambda (mode)
                 (font-lock-add-keywords
                  mode
@@ -108,6 +108,13 @@
     (use-package inf-haskell
       :config
       (progn
+        (defun my-haskell-load-and-run ()
+          "Loads and runs the current Haskell file."
+          (interactive)
+          (inferior-haskell-load-and-run inferior-haskell-run-command)
+          (sleep-for 0 100)
+          (end-of-buffer))
+
         (defun my-inferior-haskell-find-definition ()
           "Jump to the definition immediately, the way that SLIME does."
           (interactive)
@@ -153,7 +160,7 @@
             (message "Breakpoint set at %s:%d%s"
                      (file-name-nondirectory (buffer-file-name)) line col)))))
 
-    (defcustom hoogle-binary-path (expand-file-name "~/bin/hoogle")
+    (defcustom hoogle-binary-path (expand-file-name "~/.cabal/bin/hoogle")
       "Path to the local 'hoogle' binary."
       :type 'file
       :group 'haskell)
@@ -173,10 +180,11 @@
               (if t
                   (expand-file-name "~/.cabal/bin/hlint")
                 (expand-file-name "ghc-mod/cabal-dev/bin/hlint"
-                                  user-site-lisp-directory))
-
-              ghc-hoogle-command hoogle-binary-path)
+                                  user-site-lisp-directory)))
         (add-hook 'haskell-mode-hook 'ghc-init))
+
+      :config
+      (setq ghc-hoogle-command hoogle-binary-path)
 
       :config
       (defun ghc-save-buffer ()
@@ -249,7 +257,7 @@
                   (cd temporary-file-directory)
                   (setq hoogle-server-process
                         (start-process "hoogle-web" (current-buffer)
-                                       (expand-file-name "~/bin/hoogle")
+                                       (expand-file-name ghc-hoogle-command)
                                        "server" "--local" "--port=8687")))
                 (sleep-for 0 500)
                 (message "Starting local Hoogle server on port 8687...done"))
@@ -355,6 +363,8 @@
         (bind-key "C-c C-b" 'haskell-bot-show-bot-buffer haskell-mode-map)
         (bind-key "C-c C-d" 'ghc-browse-document haskell-mode-map)
         (bind-key "C-c C-k" 'inferior-haskell-kind haskell-mode-map)
+        (bind-key "C-c C-r" 'inferior-haskell-load-and-run haskell-mode-map)
+
         ;; Use C-u C-c C-t to auto-insert a function's type above it
         (if t
             (progn
