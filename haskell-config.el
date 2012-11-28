@@ -57,14 +57,15 @@
                           ("[ (]\\(/=\\)[) ]"       . ?≠)
                           ;;("[ (]\\(<=\\)[) ]"       . ?≤)
                           ;;("[ (]\\(>=\\)[) ]"       . ?≥)
-                          ("[ (]\\(=\\)[) ]"        . ?≡)
+                          ;;("[ (]\\(=\\)[) ]"        . ?≡)
                           ("[ (]\\(\\.\\)[) ]"      . ?∘)
                           ("[ (]\\(&&\\)[) ]"       . ?∧)
                           ("[ (]\\(||\\)[) ]"       . ?∨)
                           ("[ (]\\(\\*\\)[) ]"      . ?×)
                           ("[ (]\\(\\\\\\)[(_a-z]"  . ?λ)
                           (" \\(<-\\)[ \n]"         . ?←)
-                          (" \\(-<\\) "             . ?⤙)
+                          (" \\(-<\\) "             . ?↢)
+                          (" \\(>-\\) "             . ?↣)
                           (" \\(=>\\)[ \n]"         . ?⇒)
                           ;;(" \\(>=>\\) "           . ?↣)
                           ;;(" \\(<=<\\) "           . ?↢)
@@ -177,7 +178,7 @@
                                   user-site-lisp-directory))
 
               haskell-saved-check-command
-              (if t
+              (if nil
                   (expand-file-name "~/.cabal/bin/hlint")
                 (expand-file-name "ghc-mod/cabal-dev/bin/hlint"
                                   user-site-lisp-directory)))
@@ -323,7 +324,7 @@
       (require 'align)
       (add-to-list 'align-rules-list
                    '(haskell-types
-                     (regexp . "\\(\\s-+\\)::\\s-+")
+                     (regexp . "\\(\\s-+\\)\\(::\\|∷\\)\\s-+")
                      (modes quote (haskell-mode literate-haskell-mode))))
       (add-to-list 'align-rules-list
                    '(haskell-assignment
@@ -331,11 +332,11 @@
                      (modes quote (haskell-mode literate-haskell-mode))))
       (add-to-list 'align-rules-list
                    '(haskell-arrows
-                     (regexp . "\\(\\s-+\\)->\\s-+")
+                     (regexp . "\\(\\s-+\\)\\(->\\|→\\)\\s-+")
                      (modes quote (haskell-mode literate-haskell-mode))))
       (add-to-list 'align-rules-list
                    '(haskell-left-arrows
-                     (regexp . "\\(\\s-+\\)<-\\s-+")
+                     (regexp . "\\(\\s-+\\)\\(<-\\|←\\)\\s-+")
                      (modes quote (haskell-mode literate-haskell-mode))))
 
       (require 'haskell-align-imports)
@@ -373,7 +374,8 @@
           (bind-key "C-c C-t" 'my-inferior-haskell-type haskell-mode-map)
           (bind-key "C-c C-i" 'inferior-haskell-info haskell-mode-map))
 
-        (bind-key "M-." 'my-inferior-haskell-find-definition haskell-mode-map))
+        ;; (bind-key "M-." 'my-inferior-haskell-find-definition haskell-mode-map)
+        (bind-key "M-." 'find-tag haskell-mode-map))
 
       (when (featurep 'ghc)
         (bind-key "C-c C-s" 'ghc-insert-template haskell-mode-map)
