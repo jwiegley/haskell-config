@@ -52,7 +52,17 @@
   :mode (("\\.hsc?\\'" . haskell-mode)
          ("\\.lhs\\'" . literate-haskell-mode))
   :init
-  (if haskell-config-use-unicode-symbols
+  (when haskell-config-use-unicode-symbols
+    (if (and nil (featurep 'proof-site))
+        (use-package haskell-unicode-tokens
+          :load-path "site-lisp/proofgeneral/generic/"
+          :config
+          (hook-into-modes #'(lambda ()
+                               (ignore-errors
+                                 (unicode-tokens-mode 1))
+                               (unicode-tokens-use-shortcuts 0))
+                           '(haskell-mode-hook
+                             literate-haskell-mode-hook)))
       (let ((conv-chars '(("[ (]\\(->\\)[) \n]"     . ?→)
                           ("[ (]\\(/=\\)[) ]"       . ?≠)
                           ;;("[ (]\\(<=\\)[) ]"       . ?≤)
@@ -72,37 +82,37 @@
                           ;;(" \\(>>=\\) "           . ?↦)
                           ;;(" \\(=<<\\) "           . ?↤)
                           ("[ (]\\(\\<not\\>\\)[ )]" . ?¬)
-                          ("[ (]\\(<<<\\)[ )]"      . ?⋘)
-                          ("[ (]\\(>>>\\)[ )]"      . ?⋙)
+                          ;;("[ (]\\(<<<\\)[ )]"      . ?⋘)
+                          ;;("[ (]\\(>>>\\)[ )]"      . ?⋙)
                           (" \\(::\\) "             . ?∷)
                           ("\\(`union`\\)"          . ?⋃)
                           ("\\(`intersect`\\)"      . ?⋂)
                           ("\\(`elem`\\)"           . ?∈)
                           ("\\(`notElem`\\)"        . ?∉)
                           ;;("\\<\\(mempty\\)\\>"    . ??)
-                          ("\\(`mappend`\\)"        . ?⨂)
-                          ("\\(`msum`\\)"           . ?⨁)
-                          ("\\(\\<alpha\\>\\)"      . ?α)
-                          ("\\(\\<beta\\>\\)"       . ?β)
-                          ("\\(\\<delta\\>\\)"      . ?δ)
-                          ("\\(\\<theta\\>\\)"      . ?θ)
+                          ;; ("\\(`mappend`\\)"        . ?⨂)
+                          ;; ("\\(`msum`\\)"           . ?⨁)
+                          ;; ("\\(\\<True\\>\\)"       . "𝗧𝗿𝘂𝗲")
+                          ;; ("\\(\\<False\\>\\)"      . "𝗙𝗮𝗹𝘀𝗲")
                           ("\\(\\<undefined\\>\\)"  . ?⊥)
-                          ("\\<\\(forall \\)\\> "   . ?∀))))
+                          ("\\<\\(forall \\)\\>"   . ?∀))))
         (mapc (lambda (mode)
                 (font-lock-add-keywords
                  mode
                  (append (mapcar (lambda (chars)
                                    `(,(car chars)
-                                     (0 (ignore
-                                         (compose-region (match-beginning 1)
-                                                         (match-end 1)
-                                                         ,(cdr chars))))))
+                                     ,(if (characterp (cdr chars))
+                                          `(0 (ignore
+                                               (compose-region (match-beginning 1)
+                                                               (match-end 1)
+                                                               ,(cdr chars))))
+                                        `(0 ,(cdr chars)))))
                                  conv-chars)
                          '(("(\\|)" . 'esk-paren-face)
                            ;; ("\\<[a-zA-Z]+\\([0-9]\\)\\>"
                            ;;  1 haskell-subscript)
                            ))))
-              '(haskell-mode literate-haskell-mode))))
+              '(haskell-mode literate-haskell-mode)))))
 
   :config
   (progn
