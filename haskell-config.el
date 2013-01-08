@@ -181,28 +181,80 @@
       :commands ghc-init
       :init
       (progn
-        (setq ghc-module-command
-              (if nil
-                  (expand-file-name "~/.cabal/bin/ghc-mod")
-                (expand-file-name "ghc-mod/cabal-dev/bin/ghc-mod"
-                                  user-site-lisp-directory))
+        (defun my-ghc-flymake-display-errors ()
+          (interactive)
+          (let ((inhibit-redisplay t)
+                (errs (ghc-flymake-err-list)))
+            (if (= 1 (length errs))
+                (message (car errs))
+              (ghc-flymake-display-errors)
+              (fit-window-to-buffer (get-buffer-window "*GHC Info*")))))
 
+        (defun my-flymake-goto-next-error ()
+          "Go to next error in err ring."
+          (interactive)
+          (let ((line-no (flymake-get-next-err-line-no
+                          flymake-err-info (flymake-current-line-no))))
+            (when (not line-no)
+              (setq line-no (flymake-get-first-err-line-no flymake-err-info))
+              (flymake-log 1 "passed end of file"))
+            (if line-no
+                (progn
+                  (flymake-goto-line line-no)
+                  (my-ghc-flymake-display-errors))
+              (flymake-log 1 "no errors in current buffer"))))
+
+        (defun my-flymake-goto-prev-error ()
+          "Go to previous error in err ring."
+          (interactive)
+          (let ((line-no (flymake-get-prev-err-line-no
+                          flymake-err-info (flymake-current-line-no))))
+            (when (not line-no)
+              (setq line-no (flymake-get-last-err-line-no flymake-err-info))
+              (flymake-log 1 "passed beginning of file"))
+            (if line-no
+                (progn
+                  (flymake-goto-line line-no)
+                  (my-ghc-flymake-display-errors))
+              (flymake-log 1 "no errors in current buffer"))))
+
+        (defvar multiline-flymake-mode nil)
+        (defvar flymake-split-output-multiline nil)
+
+        ;; this needs to be advised as flymake-split-string is used in other
+        ;; places and I don't know of a better way to get at the caller's
+        ;; details
+        (defadvice flymake-split-output
+          (around flymake-split-output-multiline activate protect)
+          (if multiline-flymake-mode
+              (let ((flymake-split-output-multiline t))
+                ad-do-it)
+            ad-do-it))
+
+        (defadvice flymake-split-string
+          (before flymake-split-string-multiline activate)
+          (when flymake-split-output-multiline
+            (ad-set-arg 1 "^\\s *$")))
+
+        (setq ghc-module-command
+              (expand-file-name "ghc-mod/cabal-dev/bin/ghc-mod"
+                                user-site-lisp-directory)
               haskell-saved-check-command
-              (if nil
-                  (expand-file-name "~/.cabal/bin/hlint")
-                (expand-file-name "ghc-mod/cabal-dev/bin/hlint"
-                                  user-site-lisp-directory)))
+              (expand-file-name "ghc-mod/cabal-dev/bin/hlint"
+                                user-site-lisp-directory)
+              ghc-hdevtools-command
+              (expand-file-name "~/.cabal/bin/hdevtools"))
         (add-hook 'haskell-mode-hook 'ghc-init))
 
       :config
-      (setq ghc-hoogle-command hoogle-binary-path)
+      (progn
+        (setq ghc-hoogle-command hoogle-binary-path)
 
-      :config
-      (defun ghc-save-buffer ()
-        (interactive)
-        (if (buffer-modified-p)
-            (call-interactively 'save-buffer))
-        (flymake-start-syntax-check)))
+        (defun ghc-save-buffer ()
+          (interactive)
+          (if (buffer-modified-p)
+              (call-interactively 'save-buffer))
+          (flymake-start-syntax-check))))
 
     (use-package haskell-bot
       :commands haskell-bot-show-bot-buffer)
@@ -410,12 +462,13 @@
 
       (setq haskell-saved-check-command haskell-check-command)
       (flymake-mode 1)
+      (set (make-local-variable 'multiline-flymake-mode) t)
 
       (bind-key "C-c w" 'flymake-display-err-menu-for-current-line
                 haskell-mode-map)
       (bind-key "C-c *" 'flymake-start-syntax-check haskell-mode-map)
-      (bind-key "M-n" 'flymake-goto-next-error haskell-mode-map)
-      (bind-key "M-p" 'flymake-goto-prev-error haskell-mode-map))
+      (bind-key "M-n" 'my-flymake-goto-next-error haskell-mode-map)
+      (bind-key "M-p" 'my-flymake-goto-prev-error haskell-mode-map))
 
     (add-hook 'haskell-mode-hook 'my-haskell-mode-hook)))
 
