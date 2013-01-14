@@ -49,10 +49,14 @@
                            (concat request-prefix
                                    " " helm-pattern))
                       helm-pattern))
+         (short-pattern
+          (if (string-match "\\`\\([a-zA-Z_][a-zA-Z0-9_]*\\) " pattern)
+              (match-string 1 pattern)
+            pattern))
          (lim helm-candidate-number-limit)
          (args (append (list "search" "-l")
-                       (and lim (list "-n" (int-to-string lim)))
-                       (list pattern))))
+                       (and nil lim (list "-n" (int-to-string lim)))
+                       (list short-pattern))))
     (let (candidates)
       (with-temp-buffer
         (apply #'call-process "hoogle" nil t nil args)
