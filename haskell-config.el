@@ -116,8 +116,15 @@
 
   :config
   (progn
+    (load "haskell-site-file")
+
+    (defcustom hoogle-binary-path (expand-file-name "~/.cabal/bin/hoogle")
+      "Path to the local 'hoogle' binary."
+      :type 'file
+      :group 'haskell)
+
     (use-package inf-haskell
-      :config
+      :init
       (progn
         (defun my-haskell-load-and-run ()
           "Loads and runs the current Haskell file."
@@ -170,11 +177,6 @@
              proc (format ":break %d%s" line col))
             (message "Breakpoint set at %s:%d%s"
                      (file-name-nondirectory (buffer-file-name)) line col)))))
-
-    (defcustom hoogle-binary-path (expand-file-name "~/.cabal/bin/hoogle")
-      "Path to the local 'hoogle' binary."
-      :type 'file
-      :group 'haskell)
 
     (use-package ghc
       :load-path "site-lisp/ghc-mod/elisp/"
@@ -254,7 +256,8 @@
           (interactive)
           (if (buffer-modified-p)
               (call-interactively 'save-buffer))
-          (flymake-start-syntax-check))))
+          (if flymake-mode
+              (flymake-start-syntax-check)))))
 
     (use-package haskell-bot
       :commands haskell-bot-show-bot-buffer)
@@ -262,19 +265,8 @@
     (use-package hpaste
       :commands (hpaste-paste-buffer hpaste-paste-region))
 
-    (use-package scion
-      :disabled t
-      :load-path "site-lisp/scion/emacs/"
-      :init
-      (progn
-        ;; if ./cabal/bin is not in your $PATH
-        (setq scion-program (expand-file-name "~/.cabal/bin/scion-server"))
-
-        ;; Use ido-mode completion (matches anywhere, not just beginning)
-        ;;
-        ;; WARNING: This causes some versions of Emacs to fail so badly that
-        ;; Emacs needs to be restarted.
-        (setq scion-completing-read-function 'ido-completing-read)))
+    (use-package helm-hoogle
+      :commands helm-hoogle)
 
     (defun hoogle-local (query)
       (interactive
@@ -334,7 +326,8 @@
                                       haskell-hoogle-command query))
                       (scroll-to-top
                        (lambda (process event)
-                         (set-window-start (get-buffer-window temp-buffer t) 1))))
+                         (set-window-start
+                          (get-buffer-window temp-buffer t) 1))))
                   (set-process-sentinel hoogle-process scroll-to-top))))))))
 
     (defun inferior-haskell-find-haddock (sym &optional arg)
@@ -401,10 +394,6 @@
                      (regexp . "\\(\\s-+\\)\\(<-\\|←\\)\\s-+")
                      (modes quote (haskell-mode literate-haskell-mode))))
 
-      (require 'haskell-align-imports)
-      (require 'haskell-sort-imports)
-      (require 'haskell-move-nested)
-
       (bind-key "C-<left>" (lambda ()
                              (interactive)
                              (haskell-move-nested -1))
@@ -420,38 +409,36 @@
                             (insert "undefined"))
                 haskell-mode-map)
 
-      (when (featurep 'inf-haskell)
-        (bind-key "C-x SPC" 'my-inferior-haskell-break haskell-mode-map)
-        (bind-key "C-h C-i" 'my-inferior-haskell-find-haddock haskell-mode-map)
-        (bind-key "C-c C-b" 'haskell-bot-show-bot-buffer haskell-mode-map)
-        (bind-key "C-c C-d" 'ghc-browse-document haskell-mode-map)
-        (bind-key "C-c C-k" 'inferior-haskell-kind haskell-mode-map)
-        (bind-key "C-c C-r" 'inferior-haskell-load-and-run haskell-mode-map)
+      (bind-key "C-x SPC" 'my-inferior-haskell-break haskell-mode-map)
+      (bind-key "C-h C-i" 'my-inferior-haskell-find-haddock haskell-mode-map)
+      (bind-key "C-c C-b" 'haskell-bot-show-bot-buffer haskell-mode-map)
+      (bind-key "C-c C-d" 'ghc-browse-document haskell-mode-map)
+      (bind-key "C-c C-k" 'inferior-haskell-kind haskell-mode-map)
+      (bind-key "C-c C-r" 'inferior-haskell-load-and-run haskell-mode-map)
 
-        ;; Use C-u C-c C-t to auto-insert a function's type above it
-        (if t
-            (progn
-              (bind-key "C-c C-t" 'ghc-show-type haskell-mode-map)
-              (bind-key "C-c C-i" 'ghc-show-info haskell-mode-map))
-          (bind-key "C-c C-t" 'my-inferior-haskell-type haskell-mode-map)
-          (bind-key "C-c C-i" 'inferior-haskell-info haskell-mode-map))
+      (when nil
+        (unbind-key "C-c C-l" haskell-mode-map)
+        (unbind-key "C-c C-z" haskell-mode-map)
+        ;; (bind-key "SPC" 'haskell-mode-contextual-space haskell-mode-map)
+        (bind-key "C-c C-l" 'haskell-process-load-file haskell-mode-map)
+        (bind-key "C-c C-z" 'haskell-interactive-switch haskell-mode-map))
 
-        ;; (bind-key "M-." 'my-inferior-haskell-find-definition haskell-mode-map)
-        (bind-key "M-." 'find-tag haskell-mode-map))
+      ;; Use C-u C-c C-t to auto-insert a function's type above it
+      (if t
+          (progn
+            (bind-key "C-c C-t" 'ghc-show-type haskell-mode-map)
+            (bind-key "C-c C-i" 'ghc-show-info haskell-mode-map))
+        (bind-key "C-c C-t" 'my-inferior-haskell-type haskell-mode-map)
+        (bind-key "C-c C-i" 'inferior-haskell-info haskell-mode-map))
 
-      (when (featurep 'ghc)
-        (bind-key "C-c C-s" 'ghc-insert-template haskell-mode-map)
+      ;; (bind-key "M-." 'my-inferior-haskell-find-definition haskell-mode-map)
+      (bind-key "M-." 'find-tag haskell-mode-map)
 
-        (setq ac-sources (list 'ac-source-words-in-same-mode-buffers
-                               'ac-source-ghc-mod))
-        (bind-key "<A-tab>" 'ac-complete haskell-mode-map))
+      (bind-key "C-c C-s" 'ghc-insert-template haskell-mode-map)
 
-      (when (featurep 'scion)
-        ;; Whenever we open a file in Haskell mode, also activate Scion
-        (scion-mode 1)
-        ;; Whenever a file is saved, immediately type check it and highlight
-        ;; errors/warnings in the source.
-        (scion-flycheck-on-save 1))
+      (setq ac-sources (list 'ac-source-words-in-same-mode-buffers))
+      (bind-key "<tab>" 'yas/expand-from-trigger-key haskell-mode-map)
+      (bind-key "<A-tab>" 'ac-complete haskell-mode-map)
 
       (unbind-key "M-s" haskell-mode-map)
       (unbind-key "M-t" haskell-mode-map)
@@ -461,7 +448,9 @@
       (unbind-key "C-x C-d" haskell-mode-map)
 
       (setq haskell-saved-check-command haskell-check-command)
-      (flymake-mode 1)
+      (unless (or (null (buffer-file-name))
+                  (string-match ":" (buffer-file-name)))
+        (run-with-timer 2 nil 'flymake-mode 1))
       (set (make-local-variable 'multiline-flymake-mode) t)
 
       (bind-key "C-c w" 'flymake-display-err-menu-for-current-line
