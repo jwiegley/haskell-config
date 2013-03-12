@@ -183,81 +183,13 @@
       :commands ghc-init
       :init
       (progn
-        (defun my-ghc-flymake-display-errors ()
-          (interactive)
-          (let ((inhibit-redisplay t)
-                (errs (ghc-flymake-err-list)))
-            (if (= 1 (length errs))
-                (message (car errs))
-              (ghc-flymake-display-errors)
-              (fit-window-to-buffer (get-buffer-window "*GHC Info*")))))
-
-        (defun my-flymake-goto-next-error ()
-          "Go to next error in err ring."
-          (interactive)
-          (let ((line-no (flymake-get-next-err-line-no
-                          flymake-err-info (flymake-current-line-no))))
-            (when (not line-no)
-              (setq line-no (flymake-get-first-err-line-no flymake-err-info))
-              (flymake-log 1 "passed end of file"))
-            (if line-no
-                (progn
-                  (flymake-goto-line line-no)
-                  (my-ghc-flymake-display-errors))
-              (flymake-log 1 "no errors in current buffer"))))
-
-        (defun my-flymake-goto-prev-error ()
-          "Go to previous error in err ring."
-          (interactive)
-          (let ((line-no (flymake-get-prev-err-line-no
-                          flymake-err-info (flymake-current-line-no))))
-            (when (not line-no)
-              (setq line-no (flymake-get-last-err-line-no flymake-err-info))
-              (flymake-log 1 "passed beginning of file"))
-            (if line-no
-                (progn
-                  (flymake-goto-line line-no)
-                  (my-ghc-flymake-display-errors))
-              (flymake-log 1 "no errors in current buffer"))))
-
-        (defvar multiline-flymake-mode nil)
-        (defvar flymake-split-output-multiline nil)
-
-        ;; this needs to be advised as flymake-split-string is used in other
-        ;; places and I don't know of a better way to get at the caller's
-        ;; details
-        (defadvice flymake-split-output
-          (around flymake-split-output-multiline activate protect)
-          (if multiline-flymake-mode
-              (let ((flymake-split-output-multiline t))
-                ad-do-it)
-            ad-do-it))
-
-        (defadvice flymake-split-string
-          (before flymake-split-string-multiline activate)
-          (when flymake-split-output-multiline
-            (ad-set-arg 1 "^\\s *$")))
-
         (setq ghc-module-command
               (expand-file-name "ghc-mod/cabal-dev/bin/ghc-mod"
-                                user-site-lisp-directory)
-              haskell-saved-check-command
-              (expand-file-name "ghc-mod/cabal-dev/bin/hlint"
-                                user-site-lisp-directory)
-              ghc-hdevtools-command
-              (expand-file-name "~/.cabal/bin/hdevtools"))
+                                user-site-lisp-directory))
         (add-hook 'haskell-mode-hook 'ghc-init))
 
       :config
-      (progn
-        (setq ghc-hoogle-command hoogle-binary-path)
-
-        (defun ghc-save-buffer ()
-          (interactive)
-          (if (buffer-modified-p)
-              (call-interactively 'save-buffer))
-          (if flymake-mode
-              (flymake-start-syntax-check)))))
+      (setq ghc-hoogle-command hoogle-binary-path))
 
     (use-package haskell-bot
       :commands haskell-bot-show-bot-buffer)
@@ -316,7 +248,11 @@
                                        "server" "--local" "--port=8687")))
                 (sleep-for 0 500)
                 (message "Starting local Hoogle server on port 8687...done"))
-              (browse-url (format "http://localhost:8687/?hoogle=%s" query)))
+              (browse-url
+               (format "http://localhost:8687/?hoogle=%s"
+                       (replace-regexp-in-string
+                        " " "+"
+                        (replace-regexp-in-string "\\+" "%2B" query)))))
           (lexical-let ((temp-buffer (if (fboundp 'help-buffer)
                                          (help-buffer) "*Help*")))
             (with-output-to-temp-buffer temp-buffer
@@ -372,9 +308,38 @@
                   (browse-url url)
                 (error "Local file doesn't exist")))))))
 
+    (defun my-haskell-pointfree (beg end)
+      (interactive "r")
+      (let ((str (buffer-substring beg end)))
+        (delete-region beg end)
+        (call-process "pointfree" nil t nil str)
+        (delete-char -1)))
+
     (defun my-haskell-mode-hook ()
       (auto-complete-mode 1)
       (whitespace-mode 1)
+      (bug-reference-prog-mode 1)
+
+      (set (make-local-variable 'comint-prompt-regexp) "^>>> *")
+
+      ;; (add-hook 'after-save-hook 'check-parens nil t)
+
+      (turn-on-haskell-indentation)
+      (turn-on-font-lock)
+      (turn-on-haskell-decl-scan)
+
+      ;; (let ((this-directory default-directory))
+      ;;   (while (not (string= this-directory ""))
+      ;;     (let ((hsenv (expand-file-name ".hsenv" this-directory)))
+      ;;       (if (file-exists-p hsenv)
+      ;;           (set (make-local-variable 'exec-path)
+      ;;                (cons (expand-file-name "cabal/bin" hsenv)
+      ;;                      (cons (expand-file-name "bin" hsenv) exec-path)))))
+      ;;     (setq this-directory
+      ;;           (file-name-directory
+      ;;            (file-name-nondirectory exec-path)))))
+
+      (ghc-init)
 
       (require 'align)
       (add-to-list 'align-rules-list
@@ -435,8 +400,19 @@
       (bind-key "M-." 'find-tag haskell-mode-map)
 
       (bind-key "C-c C-s" 'ghc-insert-template haskell-mode-map)
+      (bind-key "C-c C-p" 'my-haskell-pointfree haskell-mode-map)
 
-      (setq ac-sources (list 'ac-source-words-in-same-mode-buffers))
+      (ac-define-source ghc-mod
+        '((depends ghc)
+          (candidates . (ghc-select-completion-symbol))
+          (symbol . "s")
+          (document . haskell-doc-sym-doc)
+          (cache)))
+
+      (setq ac-sources (list 'ac-source-words-in-same-mode-buffers
+                             'ac-source-ghc-mod))
+      (set (make-local-variable 'yas/fallback-behavior)
+           '(apply indent-according-to-mode . nil))
       (bind-key "<tab>" 'yas/expand-from-trigger-key haskell-mode-map)
       (bind-key "<A-tab>" 'ac-complete haskell-mode-map)
 
@@ -445,21 +421,13 @@
 
       (bind-key "A-M-h" 'hoogle-local haskell-mode-map)
       (bind-key "C-M-x" 'inferior-haskell-send-decl haskell-mode-map)
-      (unbind-key "C-x C-d" haskell-mode-map)
+      (unbind-key "C-x C-d" haskell-mode-map))
 
-      (setq haskell-saved-check-command haskell-check-command)
-      (unless (or (null (buffer-file-name))
-                  (string-match ":" (buffer-file-name)))
-        (run-with-timer 2 nil 'flymake-mode 1))
-      (set (make-local-variable 'multiline-flymake-mode) t)
+    (add-hook 'haskell-mode-hook 'my-haskell-mode-hook)
 
-      (bind-key "C-c w" 'flymake-display-err-menu-for-current-line
-                haskell-mode-map)
-      (bind-key "C-c *" 'flymake-start-syntax-check haskell-mode-map)
-      (bind-key "M-n" 'my-flymake-goto-next-error haskell-mode-map)
-      (bind-key "M-p" 'my-flymake-goto-prev-error haskell-mode-map))
-
-    (add-hook 'haskell-mode-hook 'my-haskell-mode-hook)))
+    (add-hook 'inferior-haskell-mode-hook
+              (lambda ()
+                (set (make-local-variable 'comint-prompt-regexp) "^>>> *")))))
 
 (provide 'haskell-config)
 
