@@ -249,7 +249,7 @@
                 (sleep-for 0 500)
                 (message "Starting local Hoogle server on port 8687...done"))
               (browse-url
-               (format "http://localhost:8687/?hoogle=%s"
+               (format "http://localhost:8687/?hoogle=%s&exact=1"
                        (replace-regexp-in-string
                         " " "+"
                         (replace-regexp-in-string "\\+" "%2B" query)))))
@@ -374,12 +374,22 @@
                             (insert "undefined"))
                 haskell-mode-map)
 
+      (defun killall-hdevtools ()
+        (interactive)
+        (shell-command "killall hdevtools")
+        (flyparse-buffer))
+
       (bind-key "C-x SPC" 'my-inferior-haskell-break haskell-mode-map)
       (bind-key "C-h C-i" 'my-inferior-haskell-find-haddock haskell-mode-map)
       (bind-key "C-c C-b" 'haskell-bot-show-bot-buffer haskell-mode-map)
       (bind-key "C-c C-d" 'ghc-browse-document haskell-mode-map)
       (bind-key "C-c C-k" 'inferior-haskell-kind haskell-mode-map)
       (bind-key "C-c C-r" 'inferior-haskell-load-and-run haskell-mode-map)
+      (bind-key "C-c C-c" 'flyparse-buffer haskell-mode-map)
+      (bind-key "C-c C" 'killall-hdevtools haskell-mode-map)
+
+      (use-package haskell-edit)
+      (bind-key "M-q" 'haskell-edit-reformat haskell-mode-map)
 
       (when nil
         (unbind-key "C-c C-l" haskell-mode-map)
