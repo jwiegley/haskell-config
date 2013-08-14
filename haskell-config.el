@@ -83,7 +83,7 @@
     "-XRecordWildCards"
     "-XScopedTypeVariables"
     "-XStandaloneDeriving"
-    ;; "-XTemplateHaskell"
+    "-XTemplateHaskell"
     "-XTupleSections"
     "-XTypeFamilies"
     "-XViewPatterns"))
@@ -264,8 +264,6 @@
          'error)))
     :modes 'haskell-mode)
 
-  (add-to-list 'flyparse-checkers 'haskell-hdevtools)
-
   (flyparse-declare-checker haskell-ghc
     "Haskell checker using ghc"
     :command `("ghc" "-i." "-i.." "-i../.." "-v0"
@@ -280,7 +278,82 @@
          'error)))
     :modes 'haskell-mode)
 
-  (add-to-list 'flyparse-checkers 'haskell-ghc))
+  (add-to-list 'flyparse-checkers 'haskell-ghc)
+  (add-to-list 'flyparse-checkers 'haskell-hdevtools)
+
+  (eval
+   `(flycheck-define-checker haskell-hdevtools
+      "A Haskell syntax and type checker using hdevtools.
+
+See URL `https://github.com/bitc/hdevtools'."
+      :command
+      ("hdevtools" "check"
+       ,@(apply
+          #'append (mapcar (lambda (x) (list "-g" x))
+                           ghc-extensions))
+       ,@(let ((hdevtools-path (executable-find "hdevtools")))
+           (if (and hdevtools-path
+                    (string-match "\\`\\(.+/\\.hsenv/\\)"
+                                  hdevtools-path))
+               (let* ((path-prefix (match-string 1 hdevtools-path))
+                      (ghc-version
+                       (with-temp-buffer
+                         (shell-command "ghc --version" t)
+                         (goto-char (point-min))
+                         (re-search-forward "version \\(.+\\)")
+                         (match-string 1))))
+                 (list "-g" (concat "-package-conf="
+                                    (expand-file-name
+                                     (concat "ghc/lib/ghc-"
+                                             ghc-version
+                                             "/package.conf.d")
+                                     path-prefix))))))
+       source-inplace):error-patterns
+      ((warning line-start (file-name) ":" line ":" column ":"
+                (or " " "\n    ") "Warning:" (optional "\n")
+                (one-or-more " ")
+                (message (one-or-more not-newline)
+                         (zero-or-more "\n"
+                                       (one-or-more " ")
+                                       (one-or-more not-newline)))
+                line-end)
+       (error line-start (file-name) ":" line ":" column ":"
+              (or (message (one-or-more not-newline))
+                  (and "\n" (one-or-more " ")
+                       (message (one-or-more not-newline)
+                                (zero-or-more "\n"
+                                              (one-or-more " ")
+                                              (one-or-more not-newline)))))
+              line-end))
+      :modes haskell-mode
+      :next-checkers ((warnings-only . haskell-hlint))))
+
+  (eval
+   `(flycheck-define-checker haskell-ghc
+      "A Haskell syntax and type checker using ghc.
+
+See URL `http://www.haskell.org/ghc/'."
+      :command ("ghc" "-i." "-i.." "-i../.." "-v0"
+                ,@ghc-extensions source-inplace)
+      :error-patterns
+      ((warning line-start (file-name) ":" line ":" column ":"
+                (or " " "\n    ") "Warning:" (optional "\n")
+                (one-or-more " ")
+                (message (one-or-more not-newline)
+                         (zero-or-more "\n"
+                                       (one-or-more " ")
+                                       (one-or-more not-newline)))
+                line-end)
+       (error line-start (file-name) ":" line ":" column ":"
+              (or (message (one-or-more not-newline))
+                  (and "\n" (one-or-more " ")
+                       (message (one-or-more not-newline)
+                                (zero-or-more "\n"
+                                              (one-or-more " ")
+                                              (one-or-more not-newline)))))
+              line-end))
+      :modes haskell-mode
+      :next-checkers ((warnings-only . haskell-hlint)))))
 
 (defun hoogle-local (query)
   (interactive
@@ -306,6 +379,9 @@
   (if arg
       (setq put-index 0
             put-prefix (read-string "Prefix: ")))
+  ;; (insert (format "trace (\"%s %d..\") $ return ()\n"
+  ;;                 put-prefix
+  ;;                 (setq put-index (1+ put-index))))
   (insert (format "liftIO $ putStrLn $ \"%s %d..\"\n"
                   put-prefix
                   (setq put-index (1+ put-index))))
@@ -349,51 +425,6 @@
               (indent-according-to-mode)
               (insert ", " package " >= " version))))))))
 
-(defun haskell-hoogle (query &optional arg)
-  "Do a Hoogle search for QUERY."
-  (interactive
-   (let ((def (haskell-ident-at-point)))
-     (if (and def (symbolp def)) (setq def (symbol-name def)))
-     (list (read-string (if def
-                            (format "Hoogle query (default %s): " def)
-                          "Hoogle query: ")
-                        nil nil def)
-           current-prefix-arg)))
-  (let ((browse-url-browser-function
-         (if (not arg)
-             browse-url-browser-function
-           '((".*" . w3m-browse-url)))))
-    (if (null haskell-hoogle-command)
-        (progn
-          (unless (and hoogle-server-process
-                       (process-live-p hoogle-server-process))
-            (message "Starting local Hoogle server on port 8687...")
-            (with-current-buffer (get-buffer-create " *hoogle-web*")
-              (cd temporary-file-directory)
-              (setq hoogle-server-process
-                    (start-process "hoogle-web" (current-buffer)
-                                   (expand-file-name ghc-hoogle-command)
-                                   "server" "--local" "--port=8687")))
-            (sleep-for 0 500)
-            (message "Starting local Hoogle server on port 8687...done"))
-          (browse-url
-           (format "http://localhost:8687/?hoogle=%s"
-                   (replace-regexp-in-string
-                    " " "+"
-                    (replace-regexp-in-string "\\+" "%2B" query)))))
-      (lexical-let ((temp-buffer (if (fboundp 'help-buffer)
-                                     (help-buffer) "*Help*")))
-        (with-output-to-temp-buffer temp-buffer
-          (with-current-buffer standard-output
-            (let ((hoogle-process
-                   (start-process "hoogle" (current-buffer)
-                                  haskell-hoogle-command query))
-                  (scroll-to-top
-                   (lambda (process event)
-                     (set-window-start
-                      (get-buffer-window temp-buffer t) 1))))
-              (set-process-sentinel hoogle-process scroll-to-top))))))))
-
 (defun inferior-haskell-find-haddock (sym &optional arg)
   (interactive
    (let ((sym (haskell-ident-at-point)))
@@ -413,7 +444,7 @@
                      mod)))
          (alist-record (assoc module (inferior-haskell-module-alist))))
     (if (null alist-record)
-        (haskell-hoogle sym arg)
+        (my-haskell-hoogle sym arg)
       (let* ((package (nth 1 alist-record))
              (file-name (concat (subst-char-in-string ?. ?- module)
                                 ".html"))
@@ -485,16 +516,31 @@
   (whitespace-mode 1)
   (bug-reference-prog-mode 1)
   (define-haskell-checkers)
-  (flyparse-mode 1)
+  ;; (flyparse-mode 1)
+  (flycheck-mode 1)
 
   (set (make-local-variable 'comint-prompt-regexp) "^>>> *")
   (setq compilation-first-column 1)
 
   ;; (add-hook 'after-save-hook 'check-parens nil t)
 
+  (ghc-init)
+
   (turn-on-haskell-indentation)
   (turn-on-font-lock)
   (turn-on-haskell-decl-scan)
+
+  (smartparens-mode 1)
+  (show-smartparens-mode 1)
+
+  (setq sp-pair-list
+        '(("\\\"" . "\\\"")
+          ("{-" . "-}")
+          ("\"" . "\"")
+          ("(" . ")")
+          ("[" . "]")
+          ("{" . "}")
+          ("`" . "`")))
 
   ;; (let ((this-directory default-directory))
   ;;   (while (not (string= this-directory ""))
@@ -506,8 +552,6 @@
   ;;     (setq this-directory
   ;;           (file-name-directory
   ;;            (file-name-nondirectory exec-path)))))
-
-  (ghc-init)
 
   (require 'align)
   (add-to-list 'align-rules-list
@@ -553,7 +597,8 @@
   (defun killall-hdevtools ()
     (interactive)
     (shell-command "killall hdevtools")
-    (flyparse-buffer))
+    ;; (flyparse-buffer)
+    (flycheck-buffer))
 
   (bind-key "C-x SPC" 'my-inferior-haskell-break haskell-mode-map)
   (bind-key "C-h C-i" 'my-inferior-haskell-find-haddock haskell-mode-map)
@@ -561,7 +606,8 @@
   (bind-key "C-c C-d" 'ghc-browse-document haskell-mode-map)
   (bind-key "C-c C-k" 'inferior-haskell-kind haskell-mode-map)
   (bind-key "C-c C-r" 'inferior-haskell-load-and-run haskell-mode-map)
-  (bind-key "C-c C-c" 'flyparse-buffer haskell-mode-map)
+  ;; (bind-key "C-c C-c" 'flyparse-buffer haskell-mode-map)
+  (bind-key "C-c C-c" 'flycheck-buffer haskell-mode-map)
   (bind-key "C-c C" 'killall-hdevtools haskell-mode-map)
 
   (use-package shm
@@ -598,6 +644,8 @@
 
   ;; (bind-key "M-." 'my-inferior-haskell-find-definition haskell-mode-map)
   (bind-key "M-." 'find-tag haskell-mode-map)
+  (bind-key "M-n" 'flycheck-next-error haskell-mode-map)
+  (bind-key "M-p" 'flycheck-previous-error haskell-mode-map)
 
   (bind-key "C-c C-s" 'ghc-insert-template haskell-mode-map)
   (bind-key "C-c C-p" 'my-haskell-pointfree haskell-mode-map)
@@ -611,8 +659,11 @@
       (document . haskell-doc-sym-doc)
       (cache)))
 
-  (setq ac-sources (list 'ac-source-words-in-same-mode-buffers
-                         'ac-source-ghc-mod))
+  (use-package auto-complete-etags)
+
+  (setq ac-sources (list 'ac-source-etags
+                         ;; 'ac-source-ghc-mod
+                         'ac-source-words-in-same-mode-buffers))
   (set (make-local-variable 'yas-fallback-behavior)
        '(apply indent-according-to-mode . nil))
   (bind-key "<tab>" 'yas-expand-from-trigger-key haskell-mode-map)
@@ -621,7 +672,8 @@
   (unbind-key "M-s" haskell-mode-map)
   (unbind-key "M-t" haskell-mode-map)
 
-  (bind-key "A-M-h" 'hoogle-local haskell-mode-map)
+  (bind-key "C-c C-h" 'my-haskell-hoogle haskell-mode-map)
+  (bind-key "A-M-h" 'my-haskell-hoogle haskell-mode-map)
   (bind-key "C-M-x" 'inferior-haskell-send-decl haskell-mode-map)
   (unbind-key "C-x C-d" haskell-mode-map)
 
@@ -643,18 +695,15 @@
         (setq ghc-module-command
               (expand-file-name "ghc-mod/cabal-dev/bin/ghc-mod"
                                 user-site-lisp-directory))
-        (add-hook 'haskell-mode-hook 'ghc-init))
-
-      :config
-      (setq ghc-hoogle-command hoogle-binary-path))
+        (add-hook 'haskell-mode-hook 'ghc-init)))
 
     (if haskell-config-use-unicode-symbols
-        (haskell-setup-unicode-conversions))
-
-    (add-hook 'haskell-mode-hook 'my-haskell-mode-hook))
+        (haskell-setup-unicode-conversions)))
 
   :config
   (progn
+    (setq ghc-hoogle-command hoogle-binary-path)
+
     (use-package inf-haskell
       :config
       (add-hook 'inferior-haskell-mode-hook
@@ -664,7 +713,54 @@
     (use-package haskell-bot :commands haskell-bot-show-bot-buffer)
     (use-package hpaste :commands (hpaste-paste-buffer hpaste-paste-region))
     (use-package helm-hoogle :commands helm-hoogle)
-    (use-package hsenv :commands hsenv-activate-fpco)))
+    (use-package hsenv :commands hsenv-activate-fpco)
+
+    (defun my-haskell-hoogle (query &optional arg)
+      "Do a Hoogle search for QUERY."
+      (interactive
+       (let ((def (haskell-ident-at-point)))
+         (if (and def (symbolp def)) (setq def (symbol-name def)))
+         (list (read-string (if def
+                                (format "Hoogle query (default %s): " def)
+                              "Hoogle query: ")
+                            nil nil def)
+               current-prefix-arg)))
+      (let ((browse-url-browser-function
+             (if (not arg)
+                 browse-url-browser-function
+               '((".*" . w3m-browse-url)))))
+        (if (null haskell-hoogle-command)
+            (progn
+              (unless (and hoogle-server-process
+                           (process-live-p hoogle-server-process))
+                (message "Starting local Hoogle server on port 8687...")
+                (with-current-buffer (get-buffer-create " *hoogle-web*")
+                  (cd temporary-file-directory)
+                  (setq hoogle-server-process
+                        (start-process "hoogle-web" (current-buffer)
+                                       (expand-file-name ghc-hoogle-command)
+                                       "server" "--local" "--port=8687")))
+                (sleep-for 0 500)
+                (message "Starting local Hoogle server on port 8687...done"))
+              (browse-url
+               (format "http://localhost:8687/?hoogle=%s"
+                       (replace-regexp-in-string
+                        " " "+"
+                        (replace-regexp-in-string "\\+" "%2B" query)))))
+          (lexical-let ((temp-buffer (if (fboundp 'help-buffer)
+                                         (help-buffer) "*Help*")))
+            (with-output-to-temp-buffer temp-buffer
+              (with-current-buffer standard-output
+                (let ((hoogle-process
+                       (start-process "hoogle" (current-buffer)
+                                      haskell-hoogle-command query))
+                      (scroll-to-top
+                       (lambda (process event)
+                         (set-window-start
+                          (get-buffer-window temp-buffer t) 1))))
+                  (set-process-sentinel hoogle-process scroll-to-top))))))))))
+
+(add-hook 'haskell-mode-hook 'my-haskell-mode-hook)
 
 (provide 'haskell-config)
 
