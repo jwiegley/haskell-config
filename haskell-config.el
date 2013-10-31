@@ -210,77 +210,6 @@
              (file-name-nondirectory (buffer-file-name)) line col)))
 
 (defun define-haskell-checkers ()
-  (flyparse-declare-checker haskell-hlint
-    "Haskell checker using hlint"
-    :command '("hlint++" source-inplace)
-    :error-patterns
-    `((,(concat "^\\(?1:.*?\\):\\(?2:[0-9]+\\):\\(?3:[0-9]+\\):[ \t\n\r]+Error:"
-                "\\(?4:\\(.\\|[ \t\n\r]\\)+?\\)\\(^\n\\|\\'\\)")
-       error)
-      (,(concat
-         "^\\(?1:.*?\\):\\(?2:[0-9]+\\):\\(?3:[0-9]+\\):[ \t\n\r]+Warning:"
-         "\\(?4:\\(.\\|[ \t\n\r]\\)+?\\)\\(^\n\\|\\'\\)")
-       warning)
-      (,(concat
-         "^\\(?1:.*?\\):\\(?2:[0-9]+\\):[ \t\n\r]+Warning: "
-         "\\(?4:\\(.\\|[ \t\n\r]\\)+?\\)\\(^\n\\|\\'\\)")
-       warning))
-    :modes 'haskell-mode)
-
-  (add-to-list 'flyparse-checkers 'haskell-hlint)
-
-  (flyparse-declare-checker haskell-hdevtools
-    "Haskell checker using hdevtools"
-    :command
-    `("hdevtools" "check"
-      ,@(apply
-         #'append (mapcar (lambda (x) (list "-g" x))
-                          ghc-extensions))
-      ,@(let ((hdevtools-path (executable-find "hdevtools")))
-          (if (and hdevtools-path
-                   (string-match "\\`\\(.+/\\.hsenv/\\)"
-                                 hdevtools-path))
-              (let* ((path-prefix (match-string 1 hdevtools-path))
-                     (ghc-version
-                      (with-temp-buffer
-                        (shell-command "ghc --version" t)
-                        (goto-char (point-min))
-                        (re-search-forward "version \\(.+\\)")
-                        (match-string 1))))
-                (list "-g" (concat "-package-conf="
-                                   (expand-file-name
-                                    (concat "ghc/lib/ghc-"
-                                            ghc-version
-                                            "/package.conf.d")
-                                    path-prefix))))))
-      source-inplace)
-    :error-patterns
-    `((,(concat "^\\(?1:.*?\\):\\(?2:[0-9]+\\):\\(?3:[0-9]+\\):[ \t\n\r]*"
-                "\\(?5:Warning:\\)?"
-                "\\(?4:\\(.\\|[ \t\n\r]\\)+?\\)\\(^\n\\|\\'\\)")
-       (if (let ((out (match-string 5 output)))
-             (and out (string= out "Warning:")))
-           'warning
-         'error)))
-    :modes 'haskell-mode)
-
-  (flyparse-declare-checker haskell-ghc
-    "Haskell checker using ghc"
-    :command `("ghc" "-i." "-i.." "-i../.." "-v0"
-               ,@ghc-extensions source-inplace)
-    :error-patterns
-    `((,(concat "^\\(?1:.*?\\):\\(?2:[0-9]+\\):\\(?3:[0-9]+\\):[ \t\n\r]*"
-                "\\(?5:Warning:\\)?"
-                "\\(?4:\\(.\\|[ \t\n\r]\\)+?\\)\\(^\n\\|\\'\\)")
-       (if (let ((out (match-string 5 output)))
-             (and out (string= out "Warning:")))
-           'warning
-         'error)))
-    :modes 'haskell-mode)
-
-  (add-to-list 'flyparse-checkers 'haskell-ghc)
-  (add-to-list 'flyparse-checkers 'haskell-hdevtools)
-
   (eval
    `(flycheck-define-checker haskell-hdevtools
       "A Haskell syntax and type checker using hdevtools.
@@ -511,13 +440,27 @@ See URL `http://www.haskell.org/ghc/'."
 
   (bind-key "C-. M-," 'haskell-who-calls haskell-mode-map))
 
+(defun define-haskell-checkers-no-implicit-prelude ()
+  (interactive)
+  (let ((ghc-extensions
+         (append ghc-extensions
+                 '("-XNoImplicitPrelude"
+                   "-i/Users/johnw/fpco/async-actor"
+                   "-i/Users/johnw/fpco/isolation-runner"
+                   ))))
+    (define-haskell-checkers)))
+
+(defun define-haskell-checkers-with-implicit-prelude ()
+  (interactive)
+  (define-haskell-checkers))
+
 (defun my-haskell-mode-hook ()
   (auto-complete-mode 1)
   (whitespace-mode 1)
   (bug-reference-prog-mode 1)
-  (define-haskell-checkers)
   ;; (flyparse-mode 1)
   (flycheck-mode 1)
+  (define-haskell-checkers)
 
   (set (make-local-variable 'comint-prompt-regexp) "^>>> *")
   (setq compilation-first-column 1)
@@ -531,6 +474,7 @@ See URL `http://www.haskell.org/ghc/'."
   (turn-on-haskell-decl-scan)
 
   (smartparens-mode 1)
+  ;; (smartparens-strict-mode 1)
   (show-smartparens-mode 1)
 
   (setq sp-pair-list
@@ -594,10 +538,12 @@ See URL `http://www.haskell.org/ghc/'."
                         (insert "undefined"))
             haskell-mode-map)
 
-  (defun killall-hdevtools ()
-    (interactive)
+  (defun killall-hdevtools (&optional arg)
+    (interactive "P")
     (shell-command "killall hdevtools")
     ;; (flyparse-buffer)
+    (when arg
+      (define-haskell-checkers-no-implicit-prelude))
     (flycheck-buffer))
 
   (bind-key "C-x SPC" 'my-inferior-haskell-break haskell-mode-map)
@@ -683,7 +629,7 @@ See URL `http://www.haskell.org/ghc/'."
   :mode ("\\.cabal\\'" . haskell-cabal-mode))
 
 (use-package haskell-mode
-  :mode (("\\.hsc?\\'" . haskell-mode)
+  :mode (("\\.hs\\(c\\|-boot\\)?\\'" . haskell-mode)
          ("\\.lhs\\'" . literate-haskell-mode))
   :init
   (progn
