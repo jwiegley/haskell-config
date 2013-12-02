@@ -217,9 +217,7 @@
 See URL `https://github.com/bitc/hdevtools'."
       :command
       ("hdevtools" "check"
-       ,@(apply
-          #'append (mapcar (lambda (x) (list "-g" x))
-                           ghc-extensions))
+       ,@(apply #'append (mapcar (lambda (x) (list "-g" x)) ghc-extensions))
        ,@(let ((hdevtools-path (executable-find "hdevtools")))
            (if (and hdevtools-path
                     (string-match "\\`\\(.+/\\.hsenv/\\)"
@@ -237,7 +235,8 @@ See URL `https://github.com/bitc/hdevtools'."
                                              ghc-version
                                              "/package.conf.d")
                                      path-prefix))))))
-       source-inplace):error-patterns
+       source-inplace)
+      :error-patterns
       ((warning line-start (file-name) ":" line ":" column ":"
                 (or " " "\n    ") "Warning:" (optional "\n")
                 (one-or-more " ")
@@ -556,19 +555,21 @@ See URL `http://www.haskell.org/ghc/'."
   (bind-key "C-c C-c" 'flycheck-buffer haskell-mode-map)
   (bind-key "C-c C" 'killall-hdevtools haskell-mode-map)
 
-  (use-package shm
+  (use-package structured-haskell-mode
+    :load-path "site-lisp/shm/elisp/"
     :disabled t
     :config
     (progn
-      (bind-key "C-k" 'shm-kill-line haskell-mode-map)
-      (bind-key "M-(" 'shm-wrap-parens haskell-mode-map)
-      ;; (bind-key "(" 'shm-open-parens haskell-mode-map)
-      (bind-key "C-M-u" 'shm-goto-parent haskell-mode-map)
-      (bind-key "C-M-k" 'shm-kill-node haskell-mode-map)
-      (bind-key "C-M-f" 'shm-forward-node haskell-mode-map)
-      (bind-key "C-M-b" 'shm-backward-node haskell-mode-map)
-      (bind-key "M-}" 'shm-forward-paragraph haskell-mode-map)
-      (bind-key "M-{" 'shm-backward-paragraph haskell-mode-map)))
+      (bind-key "C-k" 'shm/kill-line haskell-mode-map)
+      (bind-key "M-(" 'shm/wrap-parens haskell-mode-map)
+      ;; (bind-key "(" 'shm/open-paren haskell-mode-map)
+      (bind-key "C-M-u" 'shm/goto-parent haskell-mode-map)
+      (bind-key "C-M-k" 'shm/kill haskell-mode-map)
+      ;; (bind-key "C-M-f" 'shm/forward-node haskell-mode-map)
+      ;; (bind-key "C-M-b" 'shm/backward-node haskell-mode-map)
+      ;; (bind-key "M-}" 'shm-forward-paragraph haskell-mode-map)
+      ;; (bind-key "M-{" 'shm-backward-paragraph haskell-mode-map)
+      ))
 
   (use-package haskell-edit)
   (bind-key "C-c M-q" 'haskell-edit-reformat haskell-mode-map)
