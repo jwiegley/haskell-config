@@ -52,6 +52,13 @@
   :type 'file
   :group 'haskell)
 
+(defcustom nixpkgs-directory (expand-file-name "~/src/nixpkgs")
+  ""
+  :type 'directory
+  :group 'haskell)
+
+(defvar nix-package-name nil)
+
 (defconst ghc-extensions
   '("-Wall"
     "-XBangPatterns"
@@ -242,6 +249,33 @@
 	(error "No SCC at point")))))
 
 (defun define-haskell-checkers ()
+;;   (eval
+;;    `(flycheck-define-checker haskell-ghc
+;;       "A Haskell syntax and type checker using ghc.
+
+;; See URL `http://www.haskell.org/ghc/'."
+;;       :command ("ghc" "-i." "-i.." "-i../.." "-i../../.." "-i../../../.." "-v0"
+;;                 ,@ghc-extensions source-inplace)
+;;       :error-patterns
+;;       ((warning line-start (file-name) ":" line ":" column ":"
+;;                 (or " " "\n    ") "Warning:" (optional "\n")
+;;                 (one-or-more " ")
+;;                 (message (one-or-more not-newline)
+;;                          (zero-or-more "\n"
+;;                                        (one-or-more " ")
+;;                                        (one-or-more not-newline)))
+;;                 line-end)
+;;        (error line-start (file-name) ":" line ":" column ":"
+;;               (or (message (one-or-more not-newline))
+;;                   (and "\n" (one-or-more " ")
+;;                        (message (one-or-more not-newline)
+;;                                 (zero-or-more "\n"
+;;                                               (one-or-more " ")
+;;                                               (one-or-more not-newline)))))
+;;               line-end))
+;;       :modes haskell-mode
+;;       :next-checkers ((warnings-only . haskell-hlint))))
+
   (eval
    `(flycheck-define-checker haskell-hdevtools
       "A Haskell syntax and type checker using hdevtools.
@@ -273,33 +307,6 @@ See URL `https://github.com/bitc/hdevtools'."
                                              "/package.conf.d")
                                      path-prefix))))))
        source-inplace)
-      :error-patterns
-      ((warning line-start (file-name) ":" line ":" column ":"
-                (or " " "\n    ") "Warning:" (optional "\n")
-                (one-or-more " ")
-                (message (one-or-more not-newline)
-                         (zero-or-more "\n"
-                                       (one-or-more " ")
-                                       (one-or-more not-newline)))
-                line-end)
-       (error line-start (file-name) ":" line ":" column ":"
-              (or (message (one-or-more not-newline))
-                  (and "\n" (one-or-more " ")
-                       (message (one-or-more not-newline)
-                                (zero-or-more "\n"
-                                              (one-or-more " ")
-                                              (one-or-more not-newline)))))
-              line-end))
-      :modes haskell-mode
-      :next-checkers ((warnings-only . haskell-hlint))))
-
-  (eval
-   `(flycheck-define-checker haskell-ghc
-      "A Haskell syntax and type checker using ghc.
-
-See URL `http://www.haskell.org/ghc/'."
-      :command ("ghc" "-i." "-i.." "-i../.." "-i../../.." "-i../../../.." "-v0"
-                ,@ghc-extensions source-inplace)
       :error-patterns
       ((warning line-start (file-name) ":" line ":" column ":"
                 (or " " "\n    ") "Warning:" (optional "\n")
@@ -502,6 +509,24 @@ See URL `http://www.haskell.org/ghc/'."
   (define-haskell-checkers))
 
 (defun my-haskell-mode-hook ()
+  ;; (hack-local-variables)
+
+  ;; (when nix-package-name
+  ;;   (message "Reading Nix environment for %s" nix-package-name)
+  ;;   (let ((name nix-package-name))
+  ;;     (set (make-local-variable 'process-environment)
+  ;;          (with-temp-buffer
+  ;;            (call-process "nix-env" nil t nil nixpkgs-directory name)
+  ;;            (split-string (buffer-string) "\0" t))))
+
+  ;;   ;; Configure exec-path based on the new PATH
+  ;;   (set (make-local-variable 'exec-path) nil)
+  ;;   (mapc (apply-partially #'add-to-list 'exec-path)
+  ;;         (nreverse
+  ;;          (split-string (getenv-internal "PATH" process-environment) ":")))
+
+  ;;   (add-to-list 'load-path (ghc-mod-site-lisp)))
+
   (auto-complete-mode 1)
   (whitespace-mode 1)
   (bug-reference-prog-mode 1)
@@ -701,13 +726,19 @@ See URL `http://www.haskell.org/ghc/'."
 (use-package haskell-cabal
   :mode ("\\.cabal\\'" . haskell-cabal-mode))
 
+(defun ghc-mod-site-lisp ()
+  (let ((ghc-mod (executable-find "ghc-mod")))
+    (and ghc-mod
+         (expand-file-name "../share/emacs/site-lisp"
+                           (file-name-directory ghc-mod)))))
+
 (use-package haskell-mode
   :mode (("\\.hs\\(c\\|-boot\\)?\\'" . haskell-mode)
          ("\\.lhs\\'" . literate-haskell-mode))
   :init
   (progn
     (use-package ghc
-      :load-path "site-lisp/ghc-mod/elisp/"
+      :pre-init (add-to-list 'load-path (ghc-mod-site-lisp))
       :commands ghc-init
       :config
       (defun ghc-insert-template ()
@@ -774,9 +805,7 @@ See URL `http://www.haskell.org/ghc/'."
               (setq hoogle-server-process
                     (start-process "hoogle-web" (current-buffer)
                                    ghc-hoogle-command
-                                   "server"
-                                   "-d" (expand-file-name "~/Library/Hoogle")
-                                   "--local" "--port=8687")))
+                                   "server" "--local" "--port=8687")))
             (sleep-for 0 500)
             (message "Starting local Hoogle server on port 8687...done"))
           (browse-url
@@ -790,10 +819,7 @@ See URL `http://www.haskell.org/ghc/'."
           (with-current-buffer standard-output
             (let ((hoogle-process
                    (start-process "hoogle" (current-buffer)
-                                  haskell-hoogle-command
-                                  "search"
-                                  "-d" (expand-file-name "~/Library/Hoogle")
-                                  query))
+                                  haskell-hoogle-command "search" query))
                   (scroll-to-top
                    (lambda (process event)
                      (set-window-start
