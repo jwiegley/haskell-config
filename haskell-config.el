@@ -729,7 +729,7 @@ See URL `https://github.com/bitc/hdevtools'."
 (defun ghc-mod-site-lisp ()
   (let ((ghc-mod (executable-find "ghc-mod")))
     (and ghc-mod
-         (expand-file-name "../share/emacs/site-lisp"
+         (expand-file-name "../share/Agda-2.3.2.2"
                            (file-name-directory ghc-mod)))))
 
 (use-package haskell-mode
