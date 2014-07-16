@@ -77,6 +77,7 @@
     "-XGADTs"
     "-XGeneralizedNewtypeDeriving"
     "-XImplicitParams"
+    "-XKindSignatures"
     "-XMonadComprehensions"
     "-XMultiParamTypeClasses"
     "-XNamedFieldPuns"
@@ -86,6 +87,7 @@
     "-XPackageImports"
     "-XParallelListComp"
     "-XPatternGuards"
+    "-XQuasiQuotes"
     "-XRankNTypes"
     "-XRecordWildCards"
     "-XScopedTypeVariables"
@@ -474,7 +476,6 @@ See URL `https://github.com/bitc/hdevtools'."
   ;; Get the type and info of the symbol at point, print it in the
   ;; message buffer.
   (bind-key "C-. C-t" 'haskell-process-do-type haskell-mode-map)
-  (bind-key "C-. C-i" 'haskell-process-do-info haskell-mode-map)
 
   ;; Contextually do clever things on the space key, in particular:
   ;;   1. Complete imports, letting you choose the module name.
@@ -533,6 +534,7 @@ See URL `https://github.com/bitc/hdevtools'."
   ;; (flyparse-mode 1)
   (flycheck-mode 1)
   (define-haskell-checkers)
+  (flycheck-select-checker 'haskell-hdevtools)
 
   ;; (add-hook 'after-change-functions 'adjust-counting-putStrLn t)
 
@@ -635,7 +637,7 @@ See URL `https://github.com/bitc/hdevtools'."
 
   (defun killall-hdevtools (&optional arg)
     (interactive "P")
-    (shell-command "killall hdevtools")
+    (shell-command "killall .hdevtools-wrapped")
     ;; (flyparse-buffer)
     (when arg
       (define-haskell-checkers-no-implicit-prelude))
@@ -710,8 +712,8 @@ See URL `https://github.com/bitc/hdevtools'."
   ;;                        'ac-source-words-in-same-mode-buffers))
   (set (make-local-variable 'yas-fallback-behavior)
        '(apply indent-according-to-mode . nil))
+  (bind-key "C-i" 'yas-expand-from-trigger-key haskell-mode-map)
   (bind-key "<tab>" 'yas-expand-from-trigger-key haskell-mode-map)
-  (bind-key "<A-tab>" 'ac-complete haskell-mode-map)
 
   (unbind-key "M-s" haskell-mode-map)
   (unbind-key "M-t" haskell-mode-map)
@@ -741,28 +743,30 @@ See URL `https://github.com/bitc/hdevtools'."
       :pre-init (add-to-list 'load-path (ghc-mod-site-lisp))
       :commands ghc-init
       :config
-      (defun ghc-insert-template ()
-        (interactive)
-        (cond
-         ((bobp)
-          (ghc-insert-module-template))
-         ((flycheck-has-current-errors-p)
-          (flet ((ghc-flymake-err-list
-                  () (mapcar
-                      (lambda (err)
-                        (concat (replace-regexp-in-string
-                                 "  +" " "
-                                 (replace-regexp-in-string
-                                  "\n" "" (flycheck-error-message err)))
-                                "\0"))
-                      flycheck-current-errors)))
-            (ghc-flymake-insert-from-warning)
-            (while (or (eq ?  (char-syntax (char-after))) (eolp))
-              (delete-char 1))))
-         ((ghc-flymake-have-errs-p)
-          (ghc-flymake-insert-from-warning))
-         (t
-          (message "Nothing to be done")))))
+      (require 'ghc-check)
+      ;; (defun ghc-insert-template ()
+      ;;   (interactive)
+      ;;   (cond
+      ;;    ((bobp)
+      ;;     (ghc-insert-module-template))
+      ;;    ((flycheck-has-current-errors-p)
+      ;;     (flet ((ghc-flymake-err-list
+      ;;             () (mapcar
+      ;;                 (lambda (err)
+      ;;                   (concat (replace-regexp-in-string
+      ;;                            "  +" " "
+      ;;                            (replace-regexp-in-string
+      ;;                             "\n" "" (flycheck-error-message err)))
+      ;;                           "\0"))
+      ;;                 flycheck-current-errors)))
+      ;;       (ghc-flymake-insert-from-warning)
+      ;;       (while (or (eq ?  (char-syntax (char-after))) (eolp))
+      ;;         (delete-char 1))))
+      ;;    ((ghc-flymake-have-errs-p)
+      ;;     (ghc-flymake-insert-from-warning))
+      ;;    (t
+      ;;     (message "Nothing to be done"))))
+      )
 
     (if haskell-config-use-unicode-symbols
         (haskell-setup-unicode-conversions)))
