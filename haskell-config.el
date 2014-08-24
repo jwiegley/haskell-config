@@ -290,6 +290,7 @@ See URL `https://github.com/bitc/hdevtools'."
        "-g" "-i../.."
        "-g" "-i../../.."
        "-g" "-i../../../.."
+       "-g" "-i/Users/johnw/crash/isa/tools/safe-isa"
        ,@(apply #'append (mapcar (lambda (x) (list "-g" x)) ghc-extensions))
        ,@(let ((hdevtools-path (executable-find "hdevtools")))
            (if (and hdevtools-path
