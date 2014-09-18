@@ -1,4 +1,4 @@
-;;; helm-hoogle --- Use helm to navigate query results from Hoogle
+;;; helm-hoogle.el --- Use helm to navigate query results from Hoogle
 
 ;; Copyright (C) 2013 John Wiegley
 
