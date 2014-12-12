@@ -529,7 +529,6 @@ See URL `https://github.com/bitc/hdevtools'."
 
   ;;   (add-to-list 'load-path (ghc-mod-site-lisp)))
 
-  (auto-complete-mode 1)
   (whitespace-mode 1)
   (bug-reference-prog-mode 1)
   ;; (flyparse-mode 1)
@@ -544,8 +543,10 @@ See URL `https://github.com/bitc/hdevtools'."
 
   ;; (add-hook 'after-save-hook 'check-parens nil t)
 
+  (require 'company)
   (ghc-init)
-  (flymake-mode -1)
+  (add-to-list 'company-backends 'company-ghc)
+  (company-mode)
 
   (defalias 'ghc-save-buffer 'save-buffer)
 
@@ -557,14 +558,14 @@ See URL `https://github.com/bitc/hdevtools'."
   ;; (smartparens-strict-mode 1)
   ;; (show-smartparens-mode 1)
 
-  (setq sp-pair-list
-        '(("\\\"" . "\\\"")
-          ("{-" . "-}")
-          ("\"" . "\"")
-          ("(" . ")")
-          ("[" . "]")
-          ("{" . "}")
-          ("`" . "`")))
+  ;; (setq sp-pair-list
+  ;;       '(("\\\"" . "\\\"")
+  ;;         ("{-" . "-}")
+  ;;         ("\"" . "\"")
+  ;;         ("(" . ")")
+  ;;         ("[" . "]")
+  ;;         ("{" . "}")
+  ;;         ("`" . "`")))
 
   ;; (let ((this-directory default-directory))
   ;;   (while (not (string= this-directory ""))
@@ -724,7 +725,8 @@ See URL `https://github.com/bitc/hdevtools'."
   (bind-key "C-M-x" 'inferior-haskell-send-decl haskell-mode-map)
   (unbind-key "C-x C-d" haskell-mode-map)
 
-  (haskell-chris))
+  ;; (haskell-chris)
+  )
 
 (use-package haskell-cabal
   :mode ("\\.cabal\\'" . haskell-cabal-mode))
