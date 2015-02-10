@@ -543,10 +543,10 @@ See URL `https://github.com/bitc/hdevtools'."
 
   ;; (add-hook 'after-save-hook 'check-parens nil t)
 
-  (require 'company)
+  ;; (require 'company)
   (ghc-init)
-  (add-to-list 'company-backends 'company-ghc)
-  (company-mode)
+  ;; (add-to-list 'company-backends 'company-ghc)
+  ;; (company-mode)
 
   (defalias 'ghc-save-buffer 'save-buffer)
 
@@ -700,12 +700,12 @@ See URL `https://github.com/bitc/hdevtools'."
   (bind-key "C-. y" 'insert-counting-putStrLn haskell-mode-map)
   (bind-key "C-. C-y" 'insert-counting-putStrLn haskell-mode-map)
 
-  (ac-define-source ghc-mod
-    '((depends ghc)
-      (candidates . (ghc-select-completion-symbol))
-      (symbol . "s")
-      (document . haskell-doc-sym-doc)
-      (cache)))
+  ;; (ac-define-source ghc-mod
+  ;;   '((depends ghc)
+  ;;     (candidates . (ghc-select-completion-symbol))
+  ;;     (symbol . "s")
+  ;;     (document . haskell-doc-sym-doc)
+  ;;     (cache)))
 
   ;; (use-package auto-complete-etags)
 
