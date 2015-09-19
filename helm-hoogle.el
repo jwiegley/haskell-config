@@ -7,7 +7,7 @@
 ;; Version: 1.0
 ;; Keywords: haskell programming hoogle
 ;; X-URL: https://github.com/jwiegley/haskell-config
-;; Package-Requires: ((helm "1.6.2"))
+;; Package-Requires: ((helm "1.6.2") (emacs "24.4"))
 
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
