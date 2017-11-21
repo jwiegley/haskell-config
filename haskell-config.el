@@ -266,7 +266,7 @@
       (delete-region (point-min) (point-max))
       (call-process hoogle-binary-path nil t t query)
       (goto-char (point-min))
-      (highlight-lines-matching-regexp (regexp-quote query) 'helm-match)
+      (highlight-lines-matching-regexp (regexp-quote query))
       (display-buffer (current-buffer)))))
 
 (defun debug-string (put-prefix)
@@ -476,11 +476,7 @@
               (lambda ()
                 (set (make-local-variable 'comint-prompt-regexp) "^>>> *"))))
 
-  (use-package haskell-bot :commands haskell-bot-show-bot-buffer)
-
-  (use-package helm-hoogle
-    :commands helm-hoogle
-    :init (bind-key "A-M-h" 'helm-hoogle haskell-mode-map)))
+  (use-package haskell-bot :commands haskell-bot-show-bot-buffer))
 
 (defun my-haskell-hoogle (query &optional arg)
   "Do a Hoogle search for QUERY."
