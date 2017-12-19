@@ -104,7 +104,7 @@
   (if (memq (get-text-property (point) 'face)
             '(font-lock-doc-face font-lock-comment-face))
       (fill-paragraph)
-    (destructuring-bind (beg . end)
+    (cl-destructuring-bind (beg . end)
         (haskell-find-type-signature)
       (haskell-reformat-type-signature beg end))))
 
