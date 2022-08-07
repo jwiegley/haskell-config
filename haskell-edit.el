@@ -34,7 +34,7 @@
 (defun haskell-find-type-signature (&optional pos)
   (save-excursion
     (if pos (goto-char pos))
-    (re-search-backward "::" nil t)
+    (re-search-backward "\\(::\\|∷\\)" nil t)
     (skip-chars-backward " ")
     (let ((end (point)) beg token)
       (backward-word)
